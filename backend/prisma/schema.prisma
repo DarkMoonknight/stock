@@ -11,7 +11,9 @@ enum Role {
   ADMIN
   PROCUREMENT
   SITE_STORE
+  SITE_ENGINEER
   ACCOUNTS
+  HR
   MANAGEMENT
 }
 
@@ -32,6 +34,22 @@ enum ApprovalStatus {
   REJECTED
 }
 
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  LEAVE
+  WEEK_OFF
+}
+
+enum PaymentMethod {
+  BANK
+  CASH
+  UPI
+  CHEQUE
+  OTHER
+}
+
 model Company {
   id String @id @default(cuid())
   name String
@@ -40,31 +58,89 @@ model Company {
   baseCurrency String @default("INR")
   timezone String @default("Asia/Kolkata")
   createdAt DateTime @default(now())
+  departments Department[]
   sites Site[]
   users User[]
+  employees Employee[]
+  labourers Labour[]
   vendors Vendor[]
   materials Material[]
   prs PurchaseRequisition[]
   rfqs RFQ[]
   pos PurchaseOrder[]
   grns GRN[]
+  mrns MRN[]
   invoices Invoice[]
+  expenses Expense[]
+  payments Payment[]
   auditLogs AuditLog[]
   @@index([name])
+}
+
+model Department {
+  id String @id @default(cuid())
+  companyId String
+  code String
+  name String
+  active Boolean @default(true)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  users User[]
+  employees Employee[]
+  @@unique([companyId, code])
+  @@index([companyId, active])
 }
 
 model User {
   id String @id @default(cuid())
   companyId String
+  departmentId String?
   name String
   email String @unique
   passwordHash String
   role Role
   active Boolean @default(true)
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   approvals Approval[]
   auditLogs AuditLog[]
   createdAt DateTime @default(now())
+  @@index([companyId, role, active])
+}
+
+model Employee {
+  id String @id @default(cuid())
+  companyId String
+  departmentId String?
+  employeeCode String
+  name String
+  email String?
+  phone String?
+  designation String?
+  joiningDate DateTime?
+  employmentType String @default("FULL_TIME")
+  salary Decimal? @db.Decimal(18, 2)
+  active Boolean @default(true)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  attendances EmployeeAttendance[]
+  @@unique([companyId, employeeCode])
+  @@index([companyId, active])
+}
+
+model Labour {
+  id String @id @default(cuid())
+  companyId String
+  labourCode String
+  name String
+  trade String?
+  contractor String?
+  phone String?
+  dailyRate Decimal? @db.Decimal(18, 2)
+  active Boolean @default(true)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  attendances LabourAttendance[]
+  @@unique([companyId, labourCode])
+  @@index([companyId, active])
 }
 
 model Site {
@@ -79,8 +155,28 @@ model Site {
   prs PurchaseRequisition[]
   pos PurchaseOrder[]
   grns GRN[]
+  mrns MRN[]
   stock Stock[]
+  tasks SiteTask[]
+  labourAttendances LabourAttendance[]
   @@unique([companyId, code])
+  @@index([companyId, active])
+}
+
+model SiteTask {
+  id String @id @default(cuid())
+  companyId String
+  siteId String
+  title String
+  description String?
+  assignedTo String?
+  status Status @default(PENDING)
+  priority String @default("NORMAL")
+  dueDate DateTime?
+  createdAt DateTime @default(now())
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  @@index([companyId, siteId, status])
 }
 
 model Material {
@@ -99,6 +195,7 @@ model Material {
   quoteItems QuoteItem[]
   poItems POItem[]
   grnItems GRNItem[]
+  mrnItems MRNItem[]
   stock Stock[]
   @@unique([companyId, code])
 }
@@ -122,6 +219,7 @@ model Vendor {
   quotes Quote[]
   pos PurchaseOrder[]
   invoices Invoice[]
+  payments Payment[]
 }
 
 model PurchaseRequisition {
@@ -268,6 +366,32 @@ model GRNItem {
   material Material @relation(fields: [materialId], references: [id])
 }
 
+model MRN {
+  id String @id @default(cuid())
+  companyId String
+  siteId String
+  number String @unique
+  requestedBy String
+  requiredDate DateTime
+  status Status @default(PENDING)
+  purpose String?
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  site Site @relation(fields: [siteId], references: [id])
+  items MRNItem[]
+  createdAt DateTime @default(now())
+  @@index([companyId, siteId, status])
+}
+
+model MRNItem {
+  id String @id @default(cuid())
+  mrnId String
+  materialId String
+  quantity Decimal @db.Decimal(18, 3)
+  issuedQty Decimal @default(0) @db.Decimal(18, 3)
+  mrn MRN @relation(fields: [mrnId], references: [id], onDelete: Cascade)
+  material Material @relation(fields: [materialId], references: [id])
+}
+
 model Stock {
   id String @id @default(cuid())
   siteId String
@@ -276,6 +400,33 @@ model Stock {
   site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
   material Material @relation(fields: [materialId], references: [id])
   @@unique([siteId, materialId])
+}
+
+model EmployeeAttendance {
+  id String @id @default(cuid())
+  employeeId String
+  date DateTime
+  status AttendanceStatus
+  inTime DateTime?
+  outTime DateTime?
+  remarks String?
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  @@unique([employeeId, date])
+}
+
+model LabourAttendance {
+  id String @id @default(cuid())
+  labourId String
+  siteId String
+  date DateTime
+  status AttendanceStatus
+  units Decimal? @db.Decimal(18, 2)
+  overtimeHours Decimal? @db.Decimal(8, 2)
+  remarks String?
+  labour Labour @relation(fields: [labourId], references: [id], onDelete: Cascade)
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  @@unique([labourId, siteId, date])
+  @@index([siteId, date])
 }
 
 model Invoice {
@@ -294,7 +445,37 @@ model Invoice {
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   vendor Vendor @relation(fields: [vendorId], references: [id])
   po PurchaseOrder? @relation(fields: [poId], references: [id])
+  payments Payment[]
   @@unique([vendorId, number])
+}
+
+model Expense {
+  id String @id @default(cuid())
+  companyId String
+  siteId String?
+  category String
+  description String
+  amount Decimal @db.Decimal(18, 2)
+  expenseDate DateTime
+  status Status @default(PENDING)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  site Site? @relation(fields: [siteId], references: [id])
+  @@index([companyId, expenseDate])
+}
+
+model Payment {
+  id String @id @default(cuid())
+  companyId String
+  vendorId String?
+  invoiceId String?
+  amount Decimal @db.Decimal(18, 2)
+  method PaymentMethod
+  reference String?
+  paidAt DateTime @default(now())
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  vendor Vendor? @relation(fields: [vendorId], references: [id])
+  invoice Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  @@index([companyId, paidAt])
 }
 
 model AuditLog {
