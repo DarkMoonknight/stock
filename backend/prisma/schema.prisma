@@ -7,9 +7,30 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role { ADMIN PROCUREMENT SITE_STORE ACCOUNTS MANAGEMENT }
-enum Status { DRAFT PENDING APPROVED REJECTED SENT PARTIAL CLOSED CANCELLED }
-enum ApprovalStatus { PENDING APPROVED REJECTED }
+enum Role {
+  ADMIN
+  PROCUREMENT
+  SITE_STORE
+  ACCOUNTS
+  MANAGEMENT
+}
+
+enum Status {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+  SENT
+  PARTIAL
+  CLOSED
+  CANCELLED
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
 
 model Company {
   id String @id @default(cuid())
