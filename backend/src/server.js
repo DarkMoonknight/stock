@@ -9,7 +9,14 @@ import { z } from 'zod';
 const app = express();
 const prisma = new PrismaClient();
 app.use(helmet());
-app.use(cors({ origin: process.env.FRONTEND_URL?.split(',') ?? '*', credentials: true }));
+const allowedOrigins = (process.env.FRONTEND_URL || 'https://darkmoonknight.github.io').split(',').map(v => v.trim()).filter(Boolean);
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(null, false);
+  },
+  credentials: true
+}));
 app.use(express.json({ limit: '2mb' }));
 
 const auth = (req,res,next) => {
