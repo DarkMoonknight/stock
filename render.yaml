@@ -29,8 +29,7 @@ services:
       - key: OPENAI_API_KEY
         sync: false
 
-  - type: pserv
-    name: ezyprocure-db
-    runtime: node
+databases:
+  - name: ezyprocure-db
     plan: free
     region: singapore
