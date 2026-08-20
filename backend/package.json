@@ -5,11 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/server.js",
-    "start": "node src/server.js",
+    "start": "prisma generate && node src/server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:push": "prisma db push",
     "prisma:validate": "prisma validate",
+    "seed": "node prisma/seed.mjs",
     "test:contract": "node tests/api-contract.test.mjs"
   },
   "dependencies": {
