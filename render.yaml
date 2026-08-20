@@ -3,7 +3,6 @@ services:
     name: ezyprocure-api
     runtime: node
     plan: free
-    region: singapore
     rootDir: backend
     buildCommand: npm install && npx prisma generate
     startCommand: npx prisma db push && npm run seed && node src/server.js
@@ -32,4 +31,3 @@ services:
 databases:
   - name: ezyprocure-db
     plan: free
-    region: singapore
