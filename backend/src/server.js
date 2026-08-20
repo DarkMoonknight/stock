@@ -89,6 +89,10 @@ app.get('/api/dashboard', auth, companyScope, async (req,res,next) => {
   } catch(err){next(err);}
 });
 
+app.get('/api/modules', auth, companyScope, (_req,res)=>res.json({
+  sites:{active:true},materials:{active:true},vendors:{active:true},pr:{active:true},rfq:{active:true},quotes:{active:true},po:{active:true},grn:{active:true},stock:{active:true},invoices:{active:true},reports:{active:true},approvals:{active:true},ai:{active:Boolean(process.env.OPENAI_API_KEY)}
+}));
+
 app.get('/api/materials', auth, companyScope, async (req,res,next)=>{try{res.json(await prisma.material.findMany({where:{companyId:req.user.companyId,active:true},orderBy:{name:'asc'}}));}catch(err){next(err);}});
 app.get('/api/vendors', auth, companyScope, async (req,res,next)=>{try{res.json(await prisma.vendor.findMany({where:{companyId:req.user.companyId,active:true},orderBy:{name:'asc'}}));}catch(err){next(err);}});
 app.get('/api/sites', auth, companyScope, async (req,res,next)=>{try{res.json(await prisma.site.findMany({where:{companyId:req.user.companyId,active:true},orderBy:{name:'asc'}}));}catch(err){next(err);}});
@@ -109,10 +113,98 @@ app.post('/api/pr',auth,companyScope,role('ADMIN','PROCUREMENT','SITE_STORE'),as
 });
 
 app.get('/api/pr',auth,companyScope,async(req,res,next)=>{try{res.json(await prisma.purchaseRequisition.findMany({where:{companyId:req.user.companyId},include:{items:{include:{material:true}},site:true},orderBy:{createdAt:'desc'}}));}catch(err){next(err);}});
-app.get('/api/rfq',auth,companyScope,async(req,res,next)=>{try{res.json(await prisma.rFQ.findMany({where:{companyId:req.user.companyId},include:{pr:true,vendors:{include:{vendor:true}},quotes:true},orderBy:{dueDate:'asc'}}));}catch(err){next(err);}});
+
+const rfqSchema=z.object({prId:z.string(),dueDate:z.coerce.date(),vendorIds:z.array(z.string()).min(1)});
+app.post('/api/rfq',auth,companyScope,role('ADMIN','PROCUREMENT'),async(req,res,next)=>{try{
+  const input=rfqSchema.parse(req.body);
+  const pr=await prisma.purchaseRequisition.findFirst({where:{id:input.prId,companyId:req.user.companyId},include:{items:true}});
+  if(!pr)return res.status(404).json({error:'PR not found'});
+  const vendors=await prisma.vendor.findMany({where:{id:{in:input.vendorIds},companyId:req.user.companyId,active:true}});
+  if(vendors.length!==new Set(input.vendorIds).size)return res.status(400).json({error:'Invalid vendor selection'});
+  const number=`RFQ-${new Date().getFullYear().toString().slice(-2)}-${Date.now().toString().slice(-7)}`;
+  const rfq=await prisma.$transaction(async tx=>{
+    const created=await tx.rFQ.create({data:{companyId:req.user.companyId,prId:pr.id,number,dueDate:input.dueDate,status:'SENT',vendors:{create:vendors.map(v=>({vendorId:v.id}))}} ,include:{vendors:{include:{vendor:true}},pr:true}});
+    await tx.purchaseRequisition.update({where:{id:pr.id},data:{status:'APPROVED'}});
+    return created;
+  });
+  res.status(201).json(rfq);
+}catch(err){next(err);}});
+app.get('/api/rfq',auth,companyScope,async(req,res,next)=>{try{res.json(await prisma.rFQ.findMany({where:{companyId:req.user.companyId},include:{pr:true,vendors:{include:{vendor:true}},quotes:{include:{items:true,vendor:true}}},orderBy:{dueDate:'asc'}}));}catch(err){next(err);}});
+
+const quoteSchema=z.object({rfqId:z.string(),vendorId:z.string(),quoteNo:z.string().optional(),freight:z.coerce.number().nonnegative().default(0),tax:z.coerce.number().nonnegative().default(0),validUntil:z.coerce.date().optional(),items:z.array(z.object({materialId:z.string(),quantity:z.coerce.number().positive(),unitRate:z.coerce.number().nonnegative()})).min(1)});
+app.post('/api/quotes',auth,companyScope,role('ADMIN','PROCUREMENT'),async(req,res,next)=>{try{
+  const input=quoteSchema.parse(req.body);
+  const rfq=await prisma.rFQ.findFirst({where:{id:input.rfqId,companyId:req.user.companyId},include:{pr:true}});
+  const vendor=await prisma.vendor.findFirst({where:{id:input.vendorId,companyId:req.user.companyId,active:true}});
+  if(!rfq||!vendor)return res.status(404).json({error:'RFQ or vendor not found'});
+  const allowed=await prisma.rFQVendor.findFirst({where:{rfqId:rfq.id,vendorId:vendor.id}});
+  if(!allowed)return res.status(400).json({error:'Vendor is not invited to this RFQ'});
+  const itemTotal=input.items.reduce((s,i)=>s+i.quantity*i.unitRate,0);
+  const total=itemTotal+input.freight+input.tax;
+  const quote=await prisma.quote.create({data:{rfqId:rfq.id,vendorId:vendor.id,quoteNo:input.quoteNo,freight:input.freight,tax:input.tax,validUntil:input.validUntil,total,items:{create:input.items}} ,include:{vendor:true,items:true}});
+  res.status(201).json(quote);
+}catch(err){next(err);}});
+app.get('/api/quotes',auth,companyScope,async(req,res,next)=>{try{res.json(await prisma.quote.findMany({where:{rfq:{companyId:req.user.companyId}},include:{vendor:true,rfq:true,items:{include:{material:true}}},orderBy:{total:'asc'}}));}catch(err){next(err);}});
+
+const poSchema=z.object({siteId:z.string(),vendorId:z.string(),prId:z.string().optional(),items:z.array(z.object({materialId:z.string(),orderedQty:z.coerce.number().positive(),rate:z.coerce.number().nonnegative()})).min(1),tax:z.coerce.number().nonnegative().default(0)});
+app.post('/api/po',auth,companyScope,role('ADMIN','PROCUREMENT'),async(req,res,next)=>{try{
+  const input=poSchema.parse(req.body);
+  const [site,vendor]=await Promise.all([
+    prisma.site.findFirst({where:{id:input.siteId,companyId:req.user.companyId,active:true}}),
+    prisma.vendor.findFirst({where:{id:input.vendorId,companyId:req.user.companyId,active:true}})
+  ]);
+  if(!site||!vendor)return res.status(400).json({error:'Invalid site or vendor'});
+  const materialIds=[...new Set(input.items.map(i=>i.materialId))];
+  const count=await prisma.material.count({where:{id:{in:materialIds},companyId:req.user.companyId,active:true}});
+  if(count!==materialIds.length)return res.status(400).json({error:'Invalid material selection'});
+  const subtotal=input.items.reduce((s,i)=>s+i.orderedQty*i.rate,0); const total=subtotal+input.tax;
+  const number=`PO-${new Date().getFullYear().toString().slice(-2)}-${Date.now().toString().slice(-7)}`;
+  const po=await prisma.purchaseOrder.create({data:{companyId:req.user.companyId,siteId:site.id,vendorId:vendor.id,prId:input.prId,number,status:'APPROVED',subtotal,tax:input.tax,total,items:{create:input.items}},include:{vendor:true,site:true,items:true}});
+  res.status(201).json(po);
+}catch(err){next(err);}});
 app.get('/api/po',auth,companyScope,async(req,res,next)=>{try{res.json(await prisma.purchaseOrder.findMany({where:{companyId:req.user.companyId},include:{vendor:true,site:true,items:{include:{material:true}}},orderBy:{orderDate:'desc'}}));}catch(err){next(err);}});
+
+const grnSchema=z.object({poId:z.string(),items:z.array(z.object({materialId:z.string(),receivedQty:z.coerce.number().positive(),rejectedQty:z.coerce.number().nonnegative().default(0)})).min(1)});
+app.post('/api/grn',auth,companyScope,role('ADMIN','SITE_STORE'),async(req,res,next)=>{try{
+  const input=grnSchema.parse(req.body);
+  const po=await prisma.purchaseOrder.findFirst({where:{id:input.poId,companyId:req.user.companyId},include:{items:true}});
+  if(!po)return res.status(404).json({error:'PO not found'});
+  const poMap=new Map(po.items.map(i=>[i.materialId,i]));
+  for(const item of input.items){const line=poMap.get(item.materialId);if(!line)return res.status(400).json({error:'Material is not on PO'});if(item.receivedQty>Number(line.orderedQty)-Number(line.receivedQty))return res.status(400).json({error:'Received quantity exceeds PO balance'});}
+  const number=`GRN-${new Date().getFullYear().toString().slice(-2)}-${Date.now().toString().slice(-7)}`;
+  const grn=await prisma.$transaction(async tx=>{
+    const created=await tx.gRN.create({data:{companyId:req.user.companyId,siteId:po.siteId,poId:po.id,number,status:'APPROVED',items:{create:input.items}},include:{items:true,po:true}});
+    for(const item of input.items){
+      await tx.pOItem.update({where:{id:poMap.get(item.materialId).id},data:{receivedQty:{increment:item.receivedQty}}});
+      const accepted=item.receivedQty-item.rejectedQty;
+      if(accepted>0){await tx.stock.upsert({where:{siteId_materialId:{siteId:po.siteId,materialId:item.materialId}},create:{siteId:po.siteId,materialId:item.materialId,quantity:accepted},update:{quantity:{increment:accepted}}});}
+    }
+    const lines=await tx.pOItem.findMany({where:{poId:po.id}}); const closed=lines.every(x=>Number(x.receivedQty)>=Number(x.orderedQty));
+    await tx.purchaseOrder.update({where:{id:po.id},data:{status:closed?'CLOSED':'PARTIAL'}});
+    return created;
+  });
+  res.status(201).json(grn);
+}catch(err){next(err);}});
 app.get('/api/grn',auth,companyScope,async(req,res,next)=>{try{res.json(await prisma.gRN.findMany({where:{companyId:req.user.companyId},include:{po:true,site:true,items:{include:{material:true}}},orderBy:{receivedAt:'desc'}}));}catch(err){next(err);}});
+
+app.get('/api/stock',auth,companyScope,async(req,res,next)=>{try{res.json(await prisma.stock.findMany({where:{site:{companyId:req.user.companyId}},include:{site:true,material:true},orderBy:{site:{name:'asc'}}}));}catch(err){next(err);}});
+
+const invoiceSchema=z.object({vendorId:z.string(),poId:z.string().optional(),number:z.string().min(1),invoiceDate:z.coerce.date(),dueDate:z.coerce.date().optional(),amount:z.coerce.number().positive()});
+app.post('/api/invoices',auth,companyScope,role('ADMIN','ACCOUNTS'),async(req,res,next)=>{try{
+  const input=invoiceSchema.parse(req.body);
+  const vendor=await prisma.vendor.findFirst({where:{id:input.vendorId,companyId:req.user.companyId,active:true}}); if(!vendor)return res.status(400).json({error:'Invalid vendor'});
+  if(input.poId){const po=await prisma.purchaseOrder.findFirst({where:{id:input.poId,companyId:req.user.companyId,vendorId:vendor.id}});if(!po)return res.status(400).json({error:'PO does not belong to vendor/company'});}
+  const invoice=await prisma.invoice.create({data:{companyId:req.user.companyId,vendorId:vendor.id,poId:input.poId,number:input.number,invoiceDate:input.invoiceDate,dueDate:input.dueDate,amount:input.amount,status:'PENDING'},include:{vendor:true,po:true}});
+  res.status(201).json(invoice);
+}catch(err){next(err);}});
 app.get('/api/invoices',auth,companyScope,async(req,res,next)=>{try{res.json(await prisma.invoice.findMany({where:{companyId:req.user.companyId},include:{vendor:true,po:true},orderBy:{dueDate:'asc'}}));}catch(err){next(err);}});
+
+app.post('/api/approvals',auth,companyScope,async(req,res,next)=>{try{
+  const input=z.object({entityType:z.string().min(2),entityId:z.string().min(1),status:z.enum(['PENDING','APPROVED','REJECTED']),comment:z.string().optional()}).parse(req.body);
+  const approval=await prisma.approval.create({data:{entityType:input.entityType,entityId:input.entityId,userId:req.user.userId,status:input.status,comment:input.comment}});
+  res.status(201).json(approval);
+}catch(err){next(err);}});
+app.get('/api/approvals',auth,companyScope,async(req,res,next)=>{try{res.json(await prisma.approval.findMany({where:{user:{companyId:req.user.companyId}},include:{user:{select:{id:true,name:true,email:true,role:true}}},orderBy:{createdAt:'desc'}}));}catch(err){next(err);}});
 
 app.use((err,_req,res,_next)=>{ if(err?.name==='ZodError') return res.status(400).json({error:'Validation failed',details:err.issues}); console.error(err); res.status(500).json({error:'Internal server error'}); });
 const port=Number(process.env.PORT||4000);
