@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Prepare login-first site
-        run: cp index.html app.html && cp login.html index.html
+        run: cp app.html index.html
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
         with:
