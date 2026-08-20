@@ -20,8 +20,13 @@ const auth = (req,res,next) => {
 };
 const companyScope = (req,res,next) => { if (!req.user?.companyId) return res.status(403).json({error:'Company scope missing'}); next(); };
 
+app.get('/', (_req,res) => res.json({ok:true, service:'ezyprocure-api', status:'online'}));
+app.get('/health', async (_req,res) => {
+  try { await prisma.$queryRaw`SELECT 1`; res.json({ok:true, service:'ezyprocure-api', database:'connected'}); }
+  catch { res.status(503).json({ok:false, service:'ezyprocure-api', database:'unavailable'}); }
+});
 app.get('/api/health', async (_req,res) => {
-  try { await prisma.$queryRaw`SELECT 1`; res.json({ok:true, service:'ezyprocure-api'}); }
+  try { await prisma.$queryRaw`SELECT 1`; res.json({ok:true, service:'ezyprocure-api', database:'connected'}); }
   catch { res.status(503).json({ok:false, service:'ezyprocure-api', database:'unavailable'}); }
 });
 
