@@ -1,23 +1,37 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 
-// Lightweight contract tests that run without a live database.
-// They document the minimum API/security contract for CI and future integration tests.
-const required = [
-  { path: '/api/health', method: 'GET', auth: false },
-  { path: '/api/dashboard', method: 'GET', auth: true },
-  { path: '/api/materials', method: 'GET', auth: true },
-  { path: '/api/vendors', method: 'GET', auth: true },
-  { path: '/api/sites', method: 'GET', auth: true },
-  { path: '/api/pr', method: 'GET', auth: true },
-  { path: '/api/pr', method: 'POST', auth: true },
-  { path: '/api/rfq', method: 'GET', auth: true },
-  { path: '/api/po', method: 'GET', auth: true },
-  { path: '/api/grn', method: 'GET', auth: true },
-  { path: '/api/invoices', method: 'GET', auth: true }
+// Static contract test: verifies critical routes and security middleware are present
+// without requiring a live PostgreSQL instance in CI.
+const source = await readFile(new URL('../src/server.js', import.meta.url), 'utf8');
+const requiredRoutes = [
+  "app.get('/api/health'",
+  "app.post('/api/auth/register'",
+  "app.post('/api/auth/login'",
+  "app.get('/api/dashboard'",
+  "app.get('/api/materials'",
+  "app.get('/api/vendors'",
+  "app.get('/api/sites'",
+  "app.post('/api/pr'",
+  "app.get('/api/pr'",
+  "app.post('/api/rfq'",
+  "app.get('/api/rfq'",
+  "app.post('/api/quotes'",
+  "app.get('/api/quotes'",
+  "app.post('/api/po'",
+  "app.get('/api/po'",
+  "app.post('/api/grn'",
+  "app.get('/api/grn'",
+  "app.get('/api/stock'",
+  "app.post('/api/invoices'",
+  "app.get('/api/invoices'",
+  "app.post('/api/approvals'",
+  "app.get('/api/approvals'"
 ];
-
-const server = await import('../src/server.js');
-assert.ok(server, 'server module must be importable');
-console.log(`Contract inventory verified: ${required.length} endpoints`);
-console.log('Auth boundary: protected routes require Bearer JWT.');
-console.log('Data boundary: protected routes require companyId in JWT.');
+for (const route of requiredRoutes) assert.ok(source.includes(route), `Missing API route: ${route}`);
+assert.match(source, /const auth\s*=\s*\(/, 'JWT auth middleware missing');
+assert.match(source, /companyScope/, 'Company isolation middleware missing');
+assert.match(source, /prisma\.\$transaction/, 'Transactional workflow handling missing');
+console.log(`Backend contract inventory verified: ${requiredRoutes.length} critical routes`);
+console.log('Security: JWT + company scope checks detected.');
+console.log('Workflow: transactional PR/RFQ/PO/GRN logic detected.');
