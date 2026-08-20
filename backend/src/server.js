@@ -10,10 +10,22 @@ import { z } from 'zod';
 const app = express();
 const prisma = new PrismaClient();
 app.use(helmet());
-const allowedOrigins = (process.env.FRONTEND_URL || 'https://darkmoonknight.github.io').split(',').map(v => v.trim()).filter(Boolean);
+
+const defaultOrigins = [
+  'https://procurement.vaqutecalifornia.com',
+  'https://vaqutecalifornia.com',
+  'https://www.vaqutecalifornia.com',
+  'https://darkmoonknight.github.io'
+];
+const configuredOrigins = (process.env.FRONTEND_URL || '')
+  .split(',')
+  .map(v => v.trim().replace(/\/$/, ''))
+  .filter(Boolean);
+const allowedOrigins = new Set([...defaultOrigins, ...configuredOrigins]);
+
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) return callback(null, true);
+    if (!origin || allowedOrigins.has('*') || allowedOrigins.has(origin.replace(/\/$/, ''))) return callback(null, true);
     return callback(null, false);
   },
   credentials: true
@@ -111,7 +123,6 @@ app.post('/api/pr',auth,companyScope,role('ADMIN','PROCUREMENT','SITE_STORE'),as
     res.status(201).json(pr);
   } catch(err){next(err);}
 });
-
 app.get('/api/pr',auth,companyScope,async(req,res,next)=>{try{res.json(await prisma.purchaseRequisition.findMany({where:{companyId:req.user.companyId},include:{items:{include:{material:true}},site:true},orderBy:{createdAt:'desc'}}));}catch(err){next(err);}});
 
 const rfqSchema=z.object({prId:z.string(),dueDate:z.coerce.date(),vendorIds:z.array(z.string()).min(1)});
@@ -123,7 +134,7 @@ app.post('/api/rfq',auth,companyScope,role('ADMIN','PROCUREMENT'),async(req,res,
   if(vendors.length!==new Set(input.vendorIds).size)return res.status(400).json({error:'Invalid vendor selection'});
   const number=`RFQ-${new Date().getFullYear().toString().slice(-2)}-${Date.now().toString().slice(-7)}`;
   const rfq=await prisma.$transaction(async tx=>{
-    const created=await tx.rFQ.create({data:{companyId:req.user.companyId,prId:pr.id,number,dueDate:input.dueDate,status:'SENT',vendors:{create:vendors.map(v=>({vendorId:v.id}))}} ,include:{vendors:{include:{vendor:true}},pr:true}});
+    const created=await tx.rFQ.create({data:{companyId:req.user.companyId,prId:pr.id,number,dueDate:input.dueDate,status:'SENT',vendors:{create:vendors.map(v=>({vendorId:v.id}))}},include:{vendors:{include:{vendor:true}},pr:true}});
     await tx.purchaseRequisition.update({where:{id:pr.id},data:{status:'APPROVED'}});
     return created;
   });
@@ -141,7 +152,7 @@ app.post('/api/quotes',auth,companyScope,role('ADMIN','PROCUREMENT'),async(req,r
   if(!allowed)return res.status(400).json({error:'Vendor is not invited to this RFQ'});
   const itemTotal=input.items.reduce((s,i)=>s+i.quantity*i.unitRate,0);
   const total=itemTotal+input.freight+input.tax;
-  const quote=await prisma.quote.create({data:{rfqId:rfq.id,vendorId:vendor.id,quoteNo:input.quoteNo,freight:input.freight,tax:input.tax,validUntil:input.validUntil,total,items:{create:input.items}} ,include:{vendor:true,items:true}});
+  const quote=await prisma.quote.create({data:{rfqId:rfq.id,vendorId:vendor.id,quoteNo:input.quoteNo,freight:input.freight,tax:input.tax,validUntil:input.validUntil,total,items:{create:input.items}},include:{vendor:true,items:true}});
   res.status(201).json(quote);
 }catch(err){next(err);}});
 app.get('/api/quotes',auth,companyScope,async(req,res,next)=>{try{res.json(await prisma.quote.findMany({where:{rfq:{companyId:req.user.companyId}},include:{vendor:true,rfq:true,items:{include:{material:true}}},orderBy:{total:'asc'}}));}catch(err){next(err);}});
