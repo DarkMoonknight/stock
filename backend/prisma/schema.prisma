@@ -36,6 +36,9 @@ model Company {
   id String @id @default(cuid())
   name String
   gstin String? @unique
+  countryCode String @default("IN")
+  baseCurrency String @default("INR")
+  timezone String @default("Asia/Kolkata")
   createdAt DateTime @default(now())
   sites Site[]
   users User[]
@@ -46,6 +49,7 @@ model Company {
   pos PurchaseOrder[]
   grns GRN[]
   invoices Invoice[]
+  auditLogs AuditLog[]
   @@index([name])
 }
 
@@ -59,6 +63,7 @@ model User {
   active Boolean @default(true)
   company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   approvals Approval[]
+  auditLogs AuditLog[]
   createdAt DateTime @default(now())
 }
 
@@ -104,6 +109,8 @@ model Vendor {
   name String
   gstin String?
   pan String?
+  countryCode String @default("IN")
+  currencyCode String @default("INR")
   phone String?
   email String?
   creditLimit Decimal? @db.Decimal(18, 2)
@@ -170,6 +177,8 @@ model Quote {
   rfqId String
   vendorId String
   quoteNo String?
+  currencyCode String @default("INR")
+  exchangeRate Decimal? @db.Decimal(18, 8)
   freight Decimal? @db.Decimal(18, 2)
   tax Decimal? @db.Decimal(18, 2)
   validUntil DateTime?
@@ -211,6 +220,8 @@ model PurchaseOrder {
   number String @unique
   orderDate DateTime @default(now())
   status Status @default(DRAFT)
+  currencyCode String @default("INR")
+  exchangeRate Decimal? @db.Decimal(18, 8)
   subtotal Decimal @db.Decimal(18, 2)
   tax Decimal @db.Decimal(18, 2)
   total Decimal @db.Decimal(18, 2)
@@ -275,6 +286,8 @@ model Invoice {
   number String
   invoiceDate DateTime
   dueDate DateTime?
+  currencyCode String @default("INR")
+  exchangeRate Decimal? @db.Decimal(18, 8)
   amount Decimal @db.Decimal(18, 2)
   paidAmount Decimal @default(0) @db.Decimal(18, 2)
   status Status @default(PENDING)
@@ -282,4 +295,21 @@ model Invoice {
   vendor Vendor @relation(fields: [vendorId], references: [id])
   po PurchaseOrder? @relation(fields: [poId], references: [id])
   @@unique([vendorId, number])
+}
+
+model AuditLog {
+  id String @id @default(cuid())
+  companyId String
+  userId String?
+  action String
+  entityType String
+  entityId String?
+  beforeJson String?
+  afterJson String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  @@index([companyId, createdAt])
+  @@index([entityType, entityId])
 }
