@@ -60,6 +60,7 @@ model Company {
   createdAt DateTime @default(now())
   departments Department[]
   sites Site[]
+  siteTasks SiteTask[]
   users User[]
   employees Employee[]
   labourers Labour[]
@@ -159,6 +160,7 @@ model Site {
   stock Stock[]
   tasks SiteTask[]
   labourAttendances LabourAttendance[]
+  expenses Expense[]
   @@unique([companyId, code])
   @@index([companyId, active])
 }
