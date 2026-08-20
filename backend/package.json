@@ -1,6 +1,6 @@
 {
   "name": "ezyprocure-backend",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,10 +9,12 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:push": "prisma db push",
-    "prisma:validate": "prisma validate"
+    "prisma:validate": "prisma validate",
+    "test:contract": "node tests/api-contract.test.mjs"
   },
   "dependencies": {
     "@prisma/client": "^6.14.0",
+    "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
