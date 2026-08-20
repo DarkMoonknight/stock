@@ -23,7 +23,7 @@ document.getElementById('login').addEventListener('submit',async e=>{
     if(!d.token) throw new Error('Login response did not contain a token');
     localStorage.setItem('ezyprocure_token',d.token);
     localStorage.setItem('ezyprocure_user',JSON.stringify(d.user));
-    location.href='./index.html?v=20260820';
+    location.href='./app.html?v=20260820';
   }catch(x){err.textContent=x.message||'Unable to connect to API';}
   finally{signIn.disabled=false;signIn.textContent='Sign in';}
 });
