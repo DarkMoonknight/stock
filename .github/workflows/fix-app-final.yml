@@ -25,11 +25,11 @@ jobs:
           import re
           p = Path('app-final.html')
           s = p.read_text()
-          replacement = '''function editPO(id,status){window.__editPOId=id;modal('Edit PO','<div class="form"><label>Status<select id="p1">'+['DRAFT','PENDING','APPROVED','REJECTED','SENT','PARTIAL','CLOSED','CANCELLED'].map(s=>'<option '+(s===status?'selected':'')+'>'+s+'</option>').join('')+'</select></label></div><div class="right"><button class="btn primary" onclick="savePOEdit()">Save</button></div>')}
-async function savePOEdit(){await save('/api/po/'+window.__editPOId,{status:$("p1").value});closeM();refresh()}
-function newVendor'''
-          s, n = re.subn(r'function editPO\(id,status\)\{.*?\}\nfunction newVendor', replacement, s, count=1, flags=re.S)
+          replacement = '''function editPO(id,status){window.__editPOId=id;modal('Edit PO','<div class="form"><label>Status<select id="p1">'+['DRAFT','PENDING','APPROVED','REJECTED','SENT','PARTIAL','CLOSED','CANCELLED'].map(s=>'<option '+(s===status?'selected':'')+'>'+s+'</option>').join('')+'</select></label></div><div class="right"><button class="btn primary" onclick="savePOEdit()">Save</button></div>')}async function savePOEdit(){await save('/api/po/'+window.__editPOId,{status:$("p1").value});closeM();refresh()}function newVendor'''
+          s, n = re.subn(r'function editPO\(id,status\)\{.*?\}function newVendor', replacement, s, count=1, flags=re.S)
           print(f'editPO replacements: {n}')
+          if n != 1:
+            raise SystemExit('Targeted editPO syntax repair was not found; refusing to modify production file.')
           p.write_text(s)
       - name: Validate JavaScript before commit
         shell: bash
