@@ -1,0 +1,47 @@
+name: Backend AWS compatibility
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - 'infra/aws/**'
+      - '.github/workflows/backend-aws-validate.yml'
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'infra/aws/**'
+      - '.github/workflows/backend-aws-validate.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package.json
+      - name: Install dependencies
+        run: npm install
+      - name: Validate Prisma schema
+        run: npx prisma validate
+      - name: Validate Node syntax
+        run: |
+          node --check src/aws-secrets.mjs
+          node --check src/runtime-bootstrap.mjs
+          node --check src/server.js
+          node --check src/runtime-extension.js
+          node --check src/runtime-permissions.js
+      - name: Verify AWS configuration contract
+        run: |
+          test -f .env.aws.example
+          test -f ../infra/aws/README.md
+          grep -q 'AWS_SECRETS_MANAGER_SECRET_ID' .env.aws.example
+          grep -q 'AWS_RDS_SSL=true' .env.aws.example
+          grep -q 'vaquitecalifornia.com' .env.aws.example
