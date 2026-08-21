@@ -47,11 +47,11 @@ $('loginForm').addEventListener('submit',async event=>{
     if(!data.token)throw new Error('Login succeeded but no session token was returned.');
     localStorage.setItem('ezyprocure_token',data.token);
     localStorage.setItem('ezyprocure_user',JSON.stringify(data.user||{}));
-    location.replace('./app-final.html?v=3.0.4');
+    location.replace('./app-final.html?v=3.0.5');
   }catch(error){localStorage.removeItem('ezyprocure_token');showError(error.message||'Unable to sign in.');button.disabled=false;button.textContent='Sign in'}
 });
 $('health').addEventListener('click',async()=>{clearError();const b=$('health');b.disabled=true;b.textContent='Checking…';try{const d=await request('/api/health');alert(d.database==='connected'?'API online · database connected':'API online');}catch(e){showError(e.message)}finally{b.disabled=false;b.textContent='Check API'}});
-(async()=>{const token=localStorage.getItem('ezyprocure_token');if(!token)return;try{await request('/api/auth/me',{headers:{Authorization:'Bearer '+token}});location.replace('./app-final.html?v=3.0.4')}catch{localStorage.removeItem('ezyprocure_token');}})();
+(async()=>{const token=localStorage.getItem('ezyprocure_token');if(!token)return;try{await request('/api/auth/me',{headers:{Authorization:'Bearer '+token}});location.replace('./app-final.html?v=3.0.5')}catch{localStorage.removeItem('ezyprocure_token');}})();
 </script>
 </body>
 </html>
