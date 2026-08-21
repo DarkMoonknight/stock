@@ -17,10 +17,11 @@ run:
       value: ap-south-1
     - name: AWS_RDS_SSL
       value: 'true'
+    - name: AWS_SECRETS_MANAGER_SECRET_ID
+      value: ezyprocure/production/app
+    - name: AWS_SECRETS_OVERRIDE
+      value: 'true'
     - name: FRONTEND_URL
       value: https://vaquitecalifornia.com,https://www.vaquitecalifornia.com
     - name: JWT_EXPIRES_IN
       value: 12h
-  secrets:
-    - name: AWS_SECRETS_MANAGER_SECRET_ID
-      value-from: ezyprocure/production/app
