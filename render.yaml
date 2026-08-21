@@ -20,11 +20,11 @@ services:
       - key: JWT_EXPIRES_IN
         value: 12h
       - key: FRONTEND_URL
-        value: https://procurement.vaqutecalifornia.com
+        value: https://vaquitecalifornia.com
       - key: DEMO_ADMIN_EMAIL
         value: admin@ezyprocure.local
       - key: DEMO_ADMIN_PASSWORD
-        sync: false
+        value: EzyProcure@2026!
       - key: OPENAI_API_KEY
         sync: false
 
