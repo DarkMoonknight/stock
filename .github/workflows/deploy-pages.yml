@@ -1,15 +1,19 @@
 name: Deploy EzyProcure
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
 permissions:
   contents: read
   pages: write
   id-token: write
+
 concurrency:
   group: github-pages
   cancel-in-progress: true
+
 jobs:
   deploy:
     environment:
@@ -18,18 +22,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Repair inline handler quoting before validation
         shell: python
         run: |
           from pathlib import Path
           import re
+
           p = Path('app-final.html')
           s = p.read_text(encoding='utf-8')
-          def fix(m):
-              return 'onclick="' + m.group(1).replace("'", "\\'") + '"'
-          s2, n = re.subn(r'onclick="([^"]*)"', fix, s)
-          print(f'inline onclick handlers normalized: {n}')
-          p.write_text(s2, encoding='utf-8')
+
+          # app-final.html contains HTML snippets inside JavaScript strings.
+          # Those snippets use onclick=\"...\". Any single quote inside the
+          # handler must be escaped for the surrounding JavaScript string.
+          pattern = re.compile(r'onclick=\\"((?:[^"\\]|\\.)*)\\"')
+
+          def fix(match):
+              inner = match.group(1)
+              inner = re.sub(r"(?<!\\)'", r"\\'", inner)
+              return 'onclick=\\"' + inner + '\\"'
+
+          repaired, count = pattern.subn(fix, s)
+          print(f'inline onclick handlers repaired: {count}')
+          p.write_text(repaired, encoding='utf-8')
+
       - name: Validate Pages payload
         run: |
           test -f CNAME
@@ -39,6 +55,7 @@ jobs:
           test -f login.html
           test "$(cat CNAME)" = "vaquitecalifornia.com"
           echo "Pages domain: $(cat CNAME)"
+
       - name: Validate enterprise frontend JavaScript
         shell: bash
         run: |
@@ -53,6 +70,7 @@ jobs:
           PY
           node --check /tmp/app-final.js
           echo "app-final JavaScript syntax: PASS"
+
       - name: Validate login and approval payloads
         shell: bash
         run: |
@@ -64,16 +82,20 @@ jobs:
                   raise SystemExit(f'No script block found in {name}')
           PY
           echo "Login/approval payload validation: PASS"
+
       - name: Prepare login-first site
         run: cp app.html index.html
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
         with:
           enablement: true
+
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: .
+
       - name: Deploy Pages
         id: deployment
         uses: actions/deploy-pages@v4
