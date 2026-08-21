@@ -1,0 +1,26 @@
+version: 1.0
+runtime: nodejs22
+build:
+  commands:
+    build:
+      - npm install
+      - npx prisma generate
+run:
+  runtime-version: 22
+  command: npm run prisma:migrate && node src/runtime-bootstrap.mjs
+  network:
+    port: 4000
+  env:
+    - name: NODE_ENV
+      value: production
+    - name: AWS_REGION
+      value: ap-south-1
+    - name: AWS_RDS_SSL
+      value: 'true'
+    - name: FRONTEND_URL
+      value: https://vaquitecalifornia.com,https://www.vaquitecalifornia.com
+    - name: JWT_EXPIRES_IN
+      value: 12h
+  secrets:
+    - name: AWS_SECRETS_MANAGER_SECRET_ID
+      value-from: ezyprocure/production/app
