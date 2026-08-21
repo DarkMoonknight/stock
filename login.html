@@ -1,1 +1,57 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Cache-Control" content="no-cache,no-store,must-revalidate"><title>EzyProcure Login</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#f4f7fb;font:15px system-ui;color:#172033}.box{width:min(440px,calc(100% - 32px));background:#fff;border:1px solid #e2e8f0;border-radius:18px;padding:28px;box-shadow:0 18px 50px #10203918}.logo{font-size:26px;font-weight:800}.logo i{color:#079b69;font-style:normal}.muted{color:#718096;margin:7px 0 22px}label{display:block;font-size:13px;font-weight:700;margin:14px 0 6px}input{width:100%;box-sizing:border-box;padding:12px;border:1px solid #d8e1eb;border-radius:9px}button{width:100%;margin-top:18px;padding:12px;border:0;border-radius:9px;background:#079b69;color:#fff;font-weight:700;cursor:pointer}.err{color:#c53030;margin-top:12px;min-height:18px}.status{margin-top:14px;font-size:12px;color:#718096}.ok{color:#087a52}.bad{color:#c53030}.demo{margin-top:16px;background:#f1faf7;border-radius:10px;padding:12px;font-size:12px}</style></head><body><main class="box"><div class="logo">⬡ <i>EzyProcure</i></div><div class="muted">Enterprise Procurement & Operations ERP</div><form id="login"><label>Email</label><input id="email" type="email" autocomplete="username" value="admin@ezyprocure.local" required><label>Password</label><input id="password" type="password" autocomplete="current-password" value="EzyProcure@2026!" required><button id="signIn">Sign in</button><div id="err" class="err"></div></form><div class="demo"><b>Demo access</b><br>Email: admin@ezyprocure.local<br>Password: EzyProcure@2026!<br><small>Change the password from Settings after login.</small></div><div id="status" class="status">API: checking…</div></main><script>const API='https://ezyprocure-api.onrender.com',status=document.getElementById('status'),err=document.getElementById('err'),signIn=document.getElementById('signIn');async function check(){try{let r=await fetch(API+'/api/health',{cache:'no-store'}),d=await r.json();status.textContent=d.database==='connected'?'API: Online · Database connected':'API: Online · Database unavailable';status.className='status '+(d.database==='connected'?'ok':'bad')}catch(e){status.textContent='API: Offline · '+e.message;status.className='status bad'}}check();document.getElementById('login').onsubmit=async e=>{e.preventDefault();err.textContent='';signIn.disabled=true;signIn.textContent='Signing in…';try{let r=await fetch(API+'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:email.value.trim(),password:password.value})}),d=await r.json();if(!r.ok)throw Error(d.error||'Login failed');localStorage.setItem('ezyprocure_token',d.token);localStorage.setItem('ezyprocure_user',JSON.stringify(d.user));location.href='./app-final.html?v=3.0.0'}catch(x){err.textContent=x.message}finally{signIn.disabled=false;signIn.textContent='Sign in'}};</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-store">
+<title>EzyProcure — Sign in</title>
+<style>
+:root{--nav:#071b33;--brand:#079b69;--bg:#f4f7fb;--card:#fff;--line:#dbe3ec;--ink:#172033;--muted:#718096;--danger:#c53030}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font:14px system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center;padding:20px}
+.card{width:min(460px,100%);background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;box-shadow:0 12px 40px #10203912}
+.brand{font-size:25px;font-weight:800;margin-bottom:6px}.brand span{color:#19cf8a}.sub{color:var(--muted);margin-bottom:24px}.field{margin-bottom:14px}.field label{display:block;font-size:12px;font-weight:700;margin-bottom:6px;color:#536175}.field input{width:100%;padding:11px 12px;border:1px solid #d5deea;border-radius:9px;background:#fff;outline:none}.field input:focus{border-color:var(--brand);box-shadow:0 0 0 3px #079b6918}.actions{display:flex;gap:8px;align-items:center;margin-top:18px}.btn{border:1px solid #d3dce7;border-radius:9px;background:#fff;padding:10px 14px;cursor:pointer}.primary{background:var(--brand);border-color:var(--brand);color:#fff;flex:1}.primary:disabled{opacity:.65;cursor:wait}.error{display:none;padding:11px 12px;margin-bottom:14px;border:1px solid #ffd0d0;background:#fff5f5;color:var(--danger);border-radius:9px}.hint{font-size:12px;color:var(--muted);margin-top:16px;line-height:1.5}
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="brand">⬡ <span>EzyProcure</span></div>
+  <div class="sub">Secure enterprise procurement control</div>
+  <div id="error" class="error" role="alert"></div>
+  <form id="loginForm" novalidate>
+    <div class="field"><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="username" required></div>
+    <div class="field"><label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required></div>
+    <div class="actions"><button id="submit" class="btn primary" type="submit">Sign in</button><button class="btn" type="button" id="health">Check API</button></div>
+  </form>
+  <div class="hint">Your session is stored only in this browser. Signing out clears the session and returns here.</div>
+</main>
+<script>
+const API='https://ezyprocure-api.onrender.com';
+const $=id=>document.getElementById(id);
+function showError(message){$('error').textContent=message;$('error').style.display='block'}
+function clearError(){$('error').textContent='';$('error').style.display='none'}
+async function request(path,options={}){
+  let response;
+  try{response=await fetch(API+path,{...options,headers:{'Content-Type':'application/json',...(options.headers||{})},cache:'no-store'})}
+  catch{throw new Error('Backend unavailable. Please wait for the API to come online and try again.')}
+  const text=await response.text();let data={};try{data=text?JSON.parse(text):{}}catch{}
+  if(!response.ok)throw new Error(data.error||`API ${response.status}`);
+  return data;
+}
+$('loginForm').addEventListener('submit',async event=>{
+  event.preventDefault();clearError();
+  const email=$('email').value.trim().toLowerCase(),password=$('password').value;
+  if(!email||!password){showError('Enter both email and password.');return}
+  const button=$('submit');button.disabled=true;button.textContent='Signing in…';
+  try{
+    const data=await request('/api/auth/login',{method:'POST',body:JSON.stringify({email,password})});
+    if(!data.token)throw new Error('Login succeeded but no session token was returned.');
+    localStorage.setItem('ezyprocure_token',data.token);
+    localStorage.setItem('ezyprocure_user',JSON.stringify(data.user||{}));
+    location.replace('./app-final.html?v=3.0.4');
+  }catch(error){localStorage.removeItem('ezyprocure_token');showError(error.message||'Unable to sign in.');button.disabled=false;button.textContent='Sign in'}
+});
+$('health').addEventListener('click',async()=>{clearError();const b=$('health');b.disabled=true;b.textContent='Checking…';try{const d=await request('/api/health');alert(d.database==='connected'?'API online · database connected':'API online');}catch(e){showError(e.message)}finally{b.disabled=false;b.textContent='Check API'}});
+(async()=>{const token=localStorage.getItem('ezyprocure_token');if(!token)return;try{await request('/api/auth/me',{headers:{Authorization:'Bearer '+token}});location.replace('./app-final.html?v=3.0.4')}catch{localStorage.removeItem('ezyprocure_token');}})();
+</script>
+</body>
+</html>
