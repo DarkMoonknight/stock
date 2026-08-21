@@ -11,7 +11,9 @@
     "prisma:push": "prisma db push",
     "prisma:validate": "prisma validate",
     "seed": "node prisma/seed.mjs",
-    "test:contract": "node tests/api-contract.test.mjs"
+    "test:contract": "node tests/api-contract.test.mjs",
+    "test:admin-control": "node tests/admin-control.contract.test.mjs",
+    "test:all": "npm run prisma:validate && npm run test:contract && npm run test:admin-control"
   },
   "dependencies": {
     "@prisma/client": "^6.14.0",
