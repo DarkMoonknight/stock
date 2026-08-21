@@ -12,9 +12,9 @@ const prisma = new PrismaClient();
 app.use(helmet());
 
 const defaultOrigins = [
-  'https://procurement.vaqutecalifornia.com',
-  'https://vaqutecalifornia.com',
-  'https://www.vaqutecalifornia.com',
+  'https://vaquitecalifornia.com',
+  'https://vaquitecalifornia.com',
+  'https://www.vaquitecalifornia.com',
   'https://darkmoonknight.github.io'
 ];
 const configuredOrigins = (process.env.FRONTEND_URL || '')
