@@ -1,11 +1,11 @@
 {
   "name": "ezyprocure-backend",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/server.js",
-    "start": "prisma generate && node src/server.js",
+    "dev": "node --watch src/enterprise-server.js",
+    "start": "prisma generate && node src/enterprise-server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:push": "prisma db push",
