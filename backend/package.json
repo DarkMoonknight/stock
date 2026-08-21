@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/advanced-server.js",
-    "start": "prisma generate && perl -0pi -e \"s#https://vaqutecalifornia\\.com#https://vaqutecalifornia.com','https://vaquitecalifornia.com#g\" src/advanced-server.js && node src/advanced-server.js",
+    "start": "prisma generate && node src/runtime-bootstrap.mjs",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:push": "prisma db push",
@@ -13,7 +13,8 @@
     "seed": "node prisma/seed.mjs",
     "test:contract": "node tests/api-contract.test.mjs",
     "test:admin-control": "node tests/admin-control.contract.test.mjs",
-    "test:all": "npm run prisma:validate && npm run test:contract && npm run test:admin-control"
+    "test:enterprise-workflow": "node tests/enterprise-workflow.contract.test.mjs",
+    "test:all": "npm run prisma:validate && npm run test:contract && npm run test:admin-control && npm run test:enterprise-workflow"
   },
   "dependencies": {
     "@prisma/client": "^6.14.0",
