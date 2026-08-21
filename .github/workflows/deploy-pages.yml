@@ -7,6 +7,9 @@ permissions:
   contents: read
   pages: write
   id-token: write
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
 jobs:
   deploy:
     environment:
@@ -15,14 +18,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate Pages payload
+        run: |
+          test -f CNAME
+          test -f app.html
+          test -f app-final.html
+          test -f approvals.html
+          test -f login.html
+          echo "Pages domain: $(cat CNAME)"
       - name: Prepare login-first site
         run: cp app.html index.html
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
         with:
           enablement: true
-      - uses: actions/upload-pages-artifact@v3
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
           path: .
-      - id: deployment
+      - name: Deploy Pages
+        id: deployment
         uses: actions/deploy-pages@v4
