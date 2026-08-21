@@ -7,9 +7,11 @@ import { pathToFileURL } from 'node:url';
 const root = process.cwd();
 const serverPath = path.join(root, 'src', 'server.js');
 const extensionPath = path.join(root, 'src', 'runtime-extension.js');
-const [serverSource, extensionSource] = await Promise.all([
+const permissionsPath = path.join(root, 'src', 'runtime-permissions.js');
+const [serverSource, extensionSource, permissionsSource] = await Promise.all([
   fs.readFile(serverPath, 'utf8'),
-  fs.readFile(extensionPath, 'utf8')
+  fs.readFile(extensionPath, 'utf8'),
+  fs.readFile(permissionsPath, 'utf8')
 ]);
 
 // server.js contains the stable core API plus its legacy approval/listener tail.
@@ -52,7 +54,7 @@ const server=app.listen(port,()=>console.log('EzyProcure API listening on '+port
 process.on('SIGTERM',async()=>{server.close(async()=>{await prisma.$disconnect();process.exit(0);});});
 `;
 
-const combined = `${core}\n${auditHelper}\n${extensionSource}\n${tail}`;
+const combined = `${core}\n${auditHelper}\n${extensionSource}\n${permissionsSource}\n${tail}`;
 const runtimePath = path.join(os.tmpdir(), `ezyprocure-runtime-${process.pid}.mjs`);
 await fs.writeFile(runtimePath, combined, 'utf8');
 process.on('exit', () => { try { require('node:fs').unlinkSync(runtimePath); } catch {} });
