@@ -25,7 +25,33 @@ jobs:
           test -f app-final.html
           test -f approvals.html
           test -f login.html
+          test "$(cat CNAME)" = "vaquitecalifornia.com"
           echo "Pages domain: $(cat CNAME)"
+      - name: Validate enterprise frontend JavaScript
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('app-final.html').read_text(encoding='utf-8')
+          scripts = re.findall(r'<script[^>]*>(.*?)</script>', html, flags=re.S)
+          if not scripts:
+              raise SystemExit('No JavaScript found in app-final.html')
+          Path('/tmp/app-final.js').write_text('\n'.join(scripts), encoding='utf-8')
+          PY
+          node --check /tmp/app-final.js
+          echo "app-final JavaScript syntax: PASS"
+      - name: Validate login and approval payloads
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          for name in ['login.html','approvals.html']:
+              s = Path(name).read_text(encoding='utf-8')
+              if '<script' not in s:
+                  raise SystemExit(f'No script block found in {name}')
+          PY
+          echo "Login/approval payload validation: PASS"
       - name: Prepare login-first site
         run: cp app.html index.html
       - name: Configure GitHub Pages
