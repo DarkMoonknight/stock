@@ -3,6 +3,16 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { loadAwsSecrets } from './aws-secrets.mjs';
+
+const awsSecretState = await loadAwsSecrets();
+console.log(JSON.stringify({
+  event: 'aws-secrets-bootstrap',
+  enabled: awsSecretState.enabled,
+  loaded: awsSecretState.loaded,
+  provider: awsSecretState.provider,
+  region: awsSecretState.region || process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || null
+}));
 
 const root = process.cwd();
 const serverPath = path.join(root, 'src', 'server.js');
