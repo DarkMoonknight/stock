@@ -14,36 +14,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Repair embedded handler quoting
+      - name: Repair embedded inline handler quoting
         shell: python
         run: |
           from pathlib import Path
+          import re
           p = Path('app-final.html')
           s = p.read_text(encoding='utf-8')
-          replacements = {
-              "status:$(\'e1\').value": "status:$(\\'e1\\').value",
-              "notes:$(\'e2\').value": "notes:$(\\'e2\\').value",
-              "status:$(\'p1\').value": "status:$(\\'p1\\').value",
-              "vendorId:$(\'i1\').value": "vendorId:$(\\'i1\\').value",
-              "number:$(\'i2\').value": "number:$(\\'i2\\').value",
-              "amount:num($(\'i3\').value)": "amount:num($(\\'i3\\').value)",
-              "invoiceDate:$(\'i4\').value": "invoiceDate:$(\\'i4\\').value",
-              "dueDate:$(\'i5\').value": "dueDate:$(\\'i5\\').value",
-              "status:$(\'i6\').value": "status:$(\\'i6\\').value",
-              "vendorId:$(\'y1\').value||undefined": "vendorId:$(\\'y1\\').value||undefined",
-              "invoiceId:$(\'y2\').value||undefined": "invoiceId:$(\\'y2\\').value||undefined",
-              "amount:num($(\'y3\').value)": "amount:num($(\\'y3\\').value)",
-              "method:$(\'y4\').value": "method:$(\\'y4\\').value",
-              "reference:$(\'y5\').value": "reference:$(\\'y5\\').value",
-              "category:$(\'z1\').value": "category:$(\\'z1\\').value",
-              "description:$(\'z2\').value": "description:$(\\'z2\\').value",
-              "amount:num($(\'z3\').value)": "amount:num($(\\'z3\\').value)",
-              "expenseDate:$(\'z4\').value": "expenseDate:$(\\'z4\\').value",
-              "password:$(\'rp\').value": "password:$(\\'rp\\').value",
-          }
-          for old, new in replacements.items():
-              s = s.replace(old, new)
-          p.write_text(s, encoding='utf-8')
+          def fix(m):
+              return 'onclick="' + m.group(1).replace("'", "\\'") + '"'
+          s2, n = re.subn(r'onclick="([^"]*)"', fix, s)
+          print(f'inline onclick handlers normalized: {n}')
+          p.write_text(s2, encoding='utf-8')
 
       - name: Validate JavaScript syntax
         shell: bash
@@ -70,5 +52,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add app-final.html
-          git commit -m 'fix: repair embedded ERP handler quoting'
+          git commit -m 'fix: repair inline ERP frontend handlers'
           git push
