@@ -18,6 +18,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Repair inline handler quoting before validation
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          p = Path('app-final.html')
+          s = p.read_text(encoding='utf-8')
+          def fix(m):
+              return 'onclick="' + m.group(1).replace("'", "\\'") + '"'
+          s2, n = re.subn(r'onclick="([^"]*)"', fix, s)
+          print(f'inline onclick handlers normalized: {n}')
+          p.write_text(s2, encoding='utf-8')
       - name: Validate Pages payload
         run: |
           test -f CNAME
