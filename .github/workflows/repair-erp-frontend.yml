@@ -8,8 +8,13 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: erp-frontend-repair
+  cancel-in-progress: true
+
 jobs:
   repair:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,13 +24,23 @@ jobs:
         run: |
           from pathlib import Path
           import re
+
           p = Path('app-final.html')
           s = p.read_text(encoding='utf-8')
-          def fix(m):
-              return 'onclick="' + m.group(1).replace("'", "\\'") + '"'
-          s2, n = re.subn(r'onclick="([^"]*)"', fix, s)
-          print(f'inline onclick handlers normalized: {n}')
-          p.write_text(s2, encoding='utf-8')
+
+          # The HTML is generated inside JavaScript strings. Repair only the
+          # onclick=\"...\" fragments and only quotes that are not already
+          # escaped, so the transformation is safe to run repeatedly.
+          pattern = re.compile(r'onclick=\\"((?:[^"\\]|\\.)*)\\"')
+
+          def fix(match):
+              inner = match.group(1)
+              inner = re.sub(r"(?<!\\)'", r"\\'", inner)
+              return 'onclick=\\"' + inner + '\\"'
+
+          repaired, count = pattern.subn(fix, s)
+          print(f'inline onclick handlers repaired: {count}')
+          p.write_text(repaired, encoding='utf-8')
 
       - name: Validate JavaScript syntax
         shell: bash
