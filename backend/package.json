@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node --watch src/advanced-server.js",
-    "start": "prisma generate && node src/advanced-server.js",
+    "start": "prisma generate && perl -0pi -e \"s#https://vaqutecalifornia\\.com#https://vaqutecalifornia.com','https://vaquitecalifornia.com#g\" src/advanced-server.js && node src/advanced-server.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:push": "prisma db push",
