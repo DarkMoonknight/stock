@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Repair embedded inline handler quoting
+      - name: Repair nested DOM selectors inside generated handlers
         shell: python
         run: |
           from pathlib import Path
@@ -27,19 +27,20 @@ jobs:
 
           p = Path('app-final.html')
           s = p.read_text(encoding='utf-8')
+          script_re = re.compile(r'(<script[^>]*>)(.*?)(</script>)', re.S)
+          onclick_re = re.compile(r'onclick="([^"]*)"')
+          selector_re = re.compile(r"\$\('([A-Za-z0-9_-]+)'\)")
 
-          # The HTML is generated inside JavaScript strings. Repair only the
-          # onclick=\"...\" fragments and only quotes that are not already
-          # escaped, so the transformation is safe to run repeatedly.
-          pattern = re.compile(r'onclick=\\"((?:[^"\\]|\\.)*)\\"')
+          def repair_script(m):
+              body = m.group(2)
+              def repair_onclick(h):
+                  handler = h.group(1)
+                  repaired = selector_re.sub(lambda q: "$(\\'" + q.group(1) + "\\')", handler)
+                  return 'onclick="' + repaired + '"'
+              return m.group(1) + onclick_re.sub(repair_onclick, body) + m.group(3)
 
-          def fix(match):
-              inner = match.group(1)
-              inner = re.sub(r"(?<!\\)'", r"\\'", inner)
-              return 'onclick=\\"' + inner + '\\"'
-
-          repaired, count = pattern.subn(fix, s)
-          print(f'inline onclick handlers repaired: {count}')
+          repaired, scripts = script_re.subn(repair_script, s)
+          print(f'script blocks processed: {scripts}')
           p.write_text(repaired, encoding='utf-8')
 
       - name: Validate JavaScript syntax
@@ -67,5 +68,5 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add app-final.html
-          git commit -m 'fix: repair inline ERP frontend handlers'
+          git commit -m 'fix: repair generated ERP handlers'
           git push
